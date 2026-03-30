@@ -1,24 +1,33 @@
 #include <SFML/Graphics.hpp>
+#include <cmath>
+#include <memory>
+#include <vector>
 
 class Grid {
  private:
   sf::VertexArray vertices;
 
  public:
-  Grid(float gridCellSize, sf::Vector2u windowSize) {
+  static constexpr float CELL_SIZE{20.0f};
+  static sf::Vector2f snapPoint(sf::Vector2f pos) {
+    return sf::Vector2f{std::round(pos.x / CELL_SIZE) * CELL_SIZE,
+                        std::round(pos.y / CELL_SIZE) * CELL_SIZE};
+  }
+
+  Grid(sf::Vector2f windowSize) {
     vertices.setPrimitiveType(sf::PrimitiveType::Lines);
     vertices.clear();
 
-    sf::Color gridColor{50, 50, 50};
+    sf::Color gridColor{36, 36, 36};
 
-    for (float x = 0; x < windowSize.x; x += gridCellSize) {
-      vertices.append(sf::Vertex({x, 0}, gridColor));
-      vertices.append(sf::Vertex({x, windowSize.y}, gridColor));
+    for (float x = 0; x < windowSize.x; x += CELL_SIZE) {
+      vertices.append(sf::Vertex{sf::Vector2f{x, 0}, gridColor});
+      vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, gridColor});
     }
 
-    for (float y = 0; y < windowSize.y; y += gridCellSize) {
-      vertices.append(sf::Vertex({0, y}, gridColor));
-      vertices.append(sf::Vertex({windowSize.x, y}, gridColor));
+    for (float y = 0; y < windowSize.y; y += CELL_SIZE) {
+      vertices.append(sf::Vertex{sf::Vector2f{0, y}, gridColor});
+      vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, gridColor});
     }
   }
 
@@ -32,7 +41,7 @@ class Gate {
   bool inputB = false;
   bool output = false;
 
-  Gate() { body.setSize({100, 50}); }
+  Gate() { body.setSize({Grid::CELL_SIZE * 4, Grid::CELL_SIZE * 3}); }
 
   virtual void update() = 0;
 
@@ -52,7 +61,7 @@ class GatesManager {
 
   void createAndGate(sf::Vector2f position) {
     auto gate = std::make_unique<AndGate>();
-    gate->body.setPosition(position);
+    gate->body.setPosition(Grid::snapPoint(position));
     gates.push_back(std::move(gate));
   }
 
@@ -77,7 +86,7 @@ class Simulation {
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
-        grid{20, windowSize} {
+        grid{static_cast<sf::Vector2f>(windowSize)} {
     window.setFramerateLimit(30);
 
     sf::Vector2f center{windowSize.x / 2.0f, windowSize.y / 2.0f};
@@ -118,7 +127,7 @@ class Simulation {
 };
 
 int main() {
-  Simulation sim(sf::Vector2u{800, 400});
+  Simulation sim({800, 400});
   sim.start();
 
   return 0;
