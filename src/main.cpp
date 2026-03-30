@@ -1,5 +1,30 @@
 #include <SFML/Graphics.hpp>
 
+class Grid {
+ private:
+  sf::VertexArray vertices;
+
+ public:
+  Grid(float gridCellSize, sf::Vector2u windowSize) {
+    vertices.setPrimitiveType(sf::PrimitiveType::Lines);
+    vertices.clear();
+
+    sf::Color gridColor{50, 50, 50};
+
+    for (float x = 0; x < windowSize.x; x += gridCellSize) {
+      vertices.append(sf::Vertex({x, 0}, gridColor));
+      vertices.append(sf::Vertex({x, windowSize.y}, gridColor));
+    }
+
+    for (float y = 0; y < windowSize.y; y += gridCellSize) {
+      vertices.append(sf::Vertex({0, y}, gridColor));
+      vertices.append(sf::Vertex({windowSize.x, y}, gridColor));
+    }
+  }
+
+  void render(sf::RenderWindow& window) { window.draw(vertices); }
+};
+
 class Gate {
  public:
   sf::RectangleShape body;
@@ -48,9 +73,11 @@ class Simulation {
  public:
   GatesManager gateManager;
   sf::RenderWindow window;
+  Grid grid;
 
   Simulation(sf::Vector2u windowSize)
-      : window(sf::VideoMode(windowSize), "Logic Gates Simulation") {
+      : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
+        grid{20, windowSize} {
     window.setFramerateLimit(30);
 
     sf::Vector2f center{windowSize.x / 2.0f, windowSize.y / 2.0f};
@@ -81,8 +108,9 @@ class Simulation {
   void update() { gateManager.update(); }
 
   void render() {
-    window.clear();
+    window.clear(sf::Color{18, 18, 18});
 
+    grid.render(window);
     gateManager.render(window);
 
     window.display();
@@ -90,7 +118,7 @@ class Simulation {
 };
 
 int main() {
-  Simulation sim({800, 400});
+  Simulation sim(sf::Vector2u{800, 400});
   sim.start();
 
   return 0;
