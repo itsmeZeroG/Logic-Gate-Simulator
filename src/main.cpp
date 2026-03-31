@@ -18,15 +18,15 @@ class Grid {
     vertices.setPrimitiveType(sf::PrimitiveType::Lines);
     vertices.clear();
 
-    sf::Color gridColor{36, 36, 36};
+    sf::Color gridColor{36u, 36u, 36u};
 
     for (auto x = 0.0f; x < windowSize.x; x += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{x, 0}, gridColor});
+      vertices.append(sf::Vertex{sf::Vector2f{x, 0.0f}, gridColor});
       vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, gridColor});
     }
 
     for (auto y = 0.0f; y < windowSize.y; y += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{0, y}, gridColor});
+      vertices.append(sf::Vertex{sf::Vector2f{0.0f, y}, gridColor});
       vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, gridColor});
     }
   }
@@ -56,7 +56,7 @@ class Gate {
   std::vector<Pin> inputPins;
   std::vector<Pin> outputPins;
 
-  unsigned char opacity{255};
+  unsigned char opacity{255u};
 
   Gate(unsigned int inputCount = 1u, unsigned int outputCount = 1u) {
     inputPins.reserve(inputCount);
@@ -68,7 +68,7 @@ class Gate {
     for (auto i = 0u; i < inputCount; i++) inputPins.emplace_back(this);
     for (auto i = 0u; i < outputCount; i++) outputPins.emplace_back(this);
 
-    body.setSize(sf::Vector2f{Grid::CELL_SIZE * 4, Grid::CELL_SIZE * 3});
+    body.setSize(sf::Vector2f{Grid::CELL_SIZE * 4.0f, Grid::CELL_SIZE * 3.0f});
     body.setFillColor(sf::Color::Blue);
   }
 
@@ -77,7 +77,7 @@ class Gate {
     sf::Vector2f bodyPos = body.getPosition();
     sf::Vector2f bodySize = body.getSize();
 
-    for (size_t i = 0; i < inputPins.capacity(); i++) {
+    for (size_t i = 0u; i < inputPins.capacity(); i++) {
       auto& pin = inputPins[i];
 
       pin.body.setOrigin(pin.body.getGeometricCenter());
@@ -188,7 +188,7 @@ class Simulation {
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
         grid{static_cast<sf::Vector2f>(windowSize)} {
-    window.setFramerateLimit(30);
+    window.setFramerateLimit(30u);
 
     sf::Vector2f center{windowSize.x / 2.0f, windowSize.y / 2.0f};
     center.x -= 100.0f;
@@ -217,7 +217,7 @@ class Simulation {
       selectedGate->body.setPosition(
           Grid::snapPoint(selectedGate->body.getPosition()));
 
-      selectedGate->opacity = 255;
+      selectedGate->opacity = 255u;
       dragOffset = sf::Vector2f{0.0f, 0.0f};
       selectedGate = nullptr;
 
@@ -232,7 +232,7 @@ class Simulation {
       if (selectedGate == nullptr) return;
 
       // Just selected a gate
-      selectedGate->opacity = 128;
+      selectedGate->opacity = 128u;
       dragOffset = mousePos - selectedGate->body.getPosition();
     }
 
@@ -253,7 +253,7 @@ class Simulation {
   }
 
   void render() {
-    window.clear(sf::Color{18, 18, 18});
+    window.clear(sf::Color{18u, 18u, 18u});
 
     grid.render(window);
     gateManager.render(window);
@@ -263,7 +263,7 @@ class Simulation {
 };
 
 int main() {
-  Simulation sim({800, 400});
+  Simulation sim(sf::Vector2u{800u, 400u});
   sim.start();
 
   return 0;
