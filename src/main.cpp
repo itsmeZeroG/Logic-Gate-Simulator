@@ -1,7 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
 #include <memory>
-#include <print>
 #include <vector>
 
 class Grid {
