@@ -77,7 +77,7 @@ class Gate {
     sf::Vector2f bodyPos = body.getPosition();
     sf::Vector2f bodySize = body.getSize();
 
-    for (size_t i = 0u; i < inputPins.capacity(); i++) {
+    for (size_t i = 0z; i < inputPins.capacity(); i++) {
       auto& pin = inputPins[i];
 
       pin.body.setOrigin(pin.body.getGeometricCenter());
@@ -90,7 +90,7 @@ class Gate {
       pin.body.setPosition(sf::Vector2f{bodyPos.x, posY});
     }
 
-    for (size_t i = 0u; i < outputPins.capacity(); i++) {
+    for (size_t i = 0z; i < outputPins.capacity(); i++) {
       auto& pin{outputPins[i]};
 
       pin.body.setOrigin(pin.body.getGeometricCenter());
