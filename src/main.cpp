@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
 #include <memory>
+#include <print>
 #include <vector>
 
 class Grid {
@@ -41,11 +42,23 @@ class Gate {
   bool inputB = false;
   bool output = false;
 
-  Gate() { body.setSize({Grid::CELL_SIZE * 4, Grid::CELL_SIZE * 3}); }
+  unsigned char opacity = 255;
+
+  Gate() {
+    body.setSize({Grid::CELL_SIZE * 4, Grid::CELL_SIZE * 3});
+    body.setFillColor(sf::Color::Blue);
+  }
 
   virtual void update() = 0;
 
-  void render(sf::RenderWindow& window) { window.draw(body); }
+  void render(sf::RenderWindow& window) {
+    sf::Color bodyColor = body.getFillColor();
+    bodyColor.a = opacity;
+
+    body.setFillColor(bodyColor);
+
+    window.draw(sf::RectangleShape(body));
+  }
 };
 
 class AndGate : public Gate {
@@ -63,6 +76,16 @@ class GatesManager {
     auto gate = std::make_unique<AndGate>();
     gate->body.setPosition(Grid::snapPoint(position));
     gates.push_back(std::move(gate));
+  }
+
+  Gate* getGateAt(sf::Vector2f pos) {
+    for (const auto& g : gates) {
+      if (g->body.getGlobalBounds().contains(pos)) {
+        return g.get();
+      }
+    }
+
+    return nullptr;
   }
 
   void update() {
@@ -83,6 +106,10 @@ class Simulation {
   GatesManager gateManager;
   sf::RenderWindow window;
   Grid grid;
+
+  bool rmbPressed = false;
+  Gate* selectedGate = nullptr;
+  sf::Vector2f dragOffset{0.0f, 0.0f};
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
@@ -106,6 +133,38 @@ class Simulation {
 
   void exit() { window.close(); }
 
+  void handleGateMove() {
+    rmbPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Right);
+
+    if (!rmbPressed) {
+      if (selectedGate == nullptr) return;
+
+      // Just released a gate
+      selectedGate->body.setPosition(
+          Grid::snapPoint(selectedGate->body.getPosition()));
+
+      selectedGate->opacity = 255;
+      dragOffset = sf::Vector2f{0.0f, 0.0f};
+      selectedGate = nullptr;
+
+      return;
+    };
+
+    sf::Vector2f mousePos =
+        window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (selectedGate == nullptr) {
+      selectedGate = gateManager.getGateAt(mousePos);
+      if (selectedGate == nullptr) return;
+
+      // Just selected a gate
+      selectedGate->opacity = 128;
+      dragOffset = mousePos - selectedGate->body.getPosition();
+    }
+
+    selectedGate->body.setPosition(mousePos - dragOffset);
+  }
+
   void handleEvents() {
     while (const auto event = window.pollEvent()) {
       if (event->is<sf::Event::Closed>()) {
@@ -114,7 +173,10 @@ class Simulation {
     }
   }
 
-  void update() { gateManager.update(); }
+  void update() {
+    handleGateMove();
+    gateManager.update();
+  }
 
   void render() {
     window.clear(sf::Color{18, 18, 18});
