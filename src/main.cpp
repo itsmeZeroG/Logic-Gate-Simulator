@@ -8,7 +8,7 @@ class Grid {
   sf::VertexArray vertices;
 
  public:
-  static constexpr float CELL_SIZE{20.0f};
+  static constexpr float CELL_SIZE{30.0f};
   static sf::Vector2f snapPoint(sf::Vector2f pos) {
     return sf::Vector2f{std::round(pos.x / CELL_SIZE) * CELL_SIZE,
                         std::round(pos.y / CELL_SIZE) * CELL_SIZE};
@@ -40,7 +40,7 @@ class Pin {
   Gate* parentGate{nullptr};
   bool state{false};
 
-  sf::CircleShape body{5.0f};  // TODO Try different point count
+  sf::CircleShape body{Grid::CELL_SIZE / 4.0f};
 
   void render(sf::RenderWindow& window) {
     body.setFillColor(sf::Color::Blue);
@@ -141,11 +141,8 @@ class GatesManager {
   }
 
   Gate* getGateAt(sf::Vector2f pos) {
-    for (const auto& g : gates) {
-      if (g->body.getGlobalBounds().contains(pos)) {
-        return g.get();
-      }
-    }
+    for (const auto& g : gates)
+      if (g->body.getGlobalBounds().contains(pos)) return g.get();
 
     return nullptr;
   }
@@ -163,15 +160,11 @@ class GatesManager {
   }
 
   void update() {
-    for (auto& g : gates) {
-      g->update();
-    }
+    for (auto& g : gates) g->update();
   }
 
   void render(sf::RenderWindow& window) {
-    for (auto& g : gates) {
-      g->render(window);
-    }
+    for (auto& g : gates) g->render(window);
   }
 };
 
