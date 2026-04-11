@@ -34,10 +34,8 @@ class Grid {
   void render(sf::RenderWindow& window) { window.draw(vertices); }
 };
 
-class Gate;
 class Pin {
  public:
-  Gate* parentGate{nullptr};
   bool state{false};
 
   sf::CircleShape body{Grid::CELL_SIZE / 4.0f};
@@ -46,6 +44,34 @@ class Pin {
     body.setFillColor(sf::Color::Blue);
 
     window.draw(body);
+  }
+};
+
+class Wire {
+ public:
+  Pin* startPin{nullptr};
+  Pin* endPin{nullptr};
+  sf::VertexArray vertices{sf::PrimitiveType::Lines, 2};
+
+  Wire(Pin* startingPin, Pin* endingPin)
+      : startPin{startingPin}, endPin{endingPin} {}
+
+  void update() {
+    if (startPin == nullptr || endPin == nullptr) return;
+
+    endPin->state = startPin->state;
+  }
+
+  void render(sf::RenderWindow& window) {
+    if (startPin != nullptr && endPin != nullptr) {
+      vertices[0].position = startPin->body.getPosition();
+      vertices[1].position = endPin->body.getPosition();
+
+      vertices[0].color = sf::Color::Yellow;
+      vertices[1].color = sf::Color::Yellow;
+
+      window.draw(vertices);
+    }
   }
 };
 
@@ -58,15 +84,15 @@ class Gate {
 
   unsigned char opacity{255u};
 
-  Gate(unsigned int inputCount = 1u, unsigned int outputCount = 1u) {
+  Gate(size_t inputCount = 1z, size_t outputCount = 1z) {
     inputPins.reserve(inputCount);
     outputPins.reserve(outputCount);
 
     sf::Vector2f bodyPos = body.getPosition();
     sf::Vector2f bodySize = body.getSize();
 
-    for (auto i = 0u; i < inputCount; i++) inputPins.emplace_back(this);
-    for (auto i = 0u; i < outputCount; i++) outputPins.emplace_back(this);
+    for (size_t i = 0z; i < inputCount; i++) inputPins.emplace_back();
+    for (size_t i = 0z; i < outputCount; i++) outputPins.emplace_back();
 
     body.setSize(sf::Vector2f{Grid::CELL_SIZE * 4.0f, Grid::CELL_SIZE * 3.0f});
     body.setFillColor(sf::Color::Blue);
@@ -122,11 +148,29 @@ class Gate {
 
 class AndGate : public Gate {
  public:
-  AndGate() : Gate(2u, 1u) {}
+  AndGate() : Gate(2z, 1z) {}
 
   void updateLogic() override {
     outputPins[0].state = inputPins[0].state && inputPins[1].state;
     body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class WiresManager {
+ public:
+  std::vector<std::unique_ptr<Wire>> wires;
+
+  void createWire(Pin* startPin, Pin* endPin) {
+    auto wire = std::make_unique<Wire>(startPin, endPin);
+    wires.push_back(std::move(wire));
+  }
+
+  void update() {
+    for (auto& w : wires) w->update();
+  }
+
+  void render(sf::RenderWindow& window) {
+    for (auto& w : wires) w->render(window);
   }
 };
 
@@ -170,7 +214,8 @@ class GatesManager {
 
 class Simulation {
  public:
-  GatesManager gateManager;
+  GatesManager gatesManager;
+  WiresManager wiresManager;
   sf::RenderWindow window;
   Grid grid;
 
@@ -187,7 +232,16 @@ class Simulation {
     center.x -= 100.0f;
     center.y -= 50.0f;
 
-    gateManager.createAndGate(center);
+    sf::Vector2f gate1Pos{center};
+    gate1Pos.x -= 100.0f;
+    gatesManager.createAndGate(gate1Pos);
+
+    sf::Vector2f gate2Pos{center};
+    gate2Pos.x += 100.0f;
+    gatesManager.createAndGate(gate2Pos);
+
+    wiresManager.createWire(&gatesManager.gates[0]->outputPins[0],
+                            &gatesManager.gates[1]->inputPins[0]);
   }
 
   void start() {
@@ -221,7 +275,7 @@ class Simulation {
         window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
     if (selectedGate == nullptr) {
-      selectedGate = gateManager.getGateAt(mousePos);
+      selectedGate = gatesManager.getGateAt(mousePos);
       if (selectedGate == nullptr) return;
 
       // Just selected a gate
@@ -242,14 +296,16 @@ class Simulation {
 
   void update() {
     handleGateMove();
-    gateManager.update();
+    wiresManager.update();
+    gatesManager.update();
   }
 
   void render() {
     window.clear(sf::Color{18u, 18u, 18u});
 
     grid.render(window);
-    gateManager.render(window);
+    wiresManager.render(window);
+    gatesManager.render(window);
 
     window.display();
   }
