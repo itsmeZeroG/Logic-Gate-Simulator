@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -100,7 +101,8 @@ class Gate {
 
   uint8_t opacity{255u};
 
-  Gate(size_t inputCount = 1z, size_t outputCount = 1z) {
+  Gate(size_t inputCount = 1z, size_t outputCount = 1z,
+       sf::Vector2f gateSize = sf::Vector2f{1.0f, 1.0f}) {
     inputPins.reserve(inputCount);
     outputPins.reserve(outputCount);
 
@@ -112,7 +114,8 @@ class Gate {
     for (size_t i = 0z; i < outputCount; i++)
       outputPins.emplace_back(PinType::Output);
 
-    body.setSize(sf::Vector2f{Grid::CELL_SIZE * 4.0f, Grid::CELL_SIZE * 3.0f});
+    body.setSize(sf::Vector2f{Grid::CELL_SIZE * gateSize.x,
+                              Grid::CELL_SIZE * gateSize.y});
     body.setFillColor(sf::Color::Blue);
   }
 
@@ -166,12 +169,43 @@ class Gate {
 
 class AndGate : public Gate {
  public:
-  AndGate() : Gate(2z, 1z) {}
+  AndGate() : Gate(2z, 1z, sf::Vector2f{3.0f, 2.0f}) {}
 
   void updateLogic() override {
     outputPins[0].state = inputPins[0].state && inputPins[1].state;
     body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
   }
+};
+
+class OrGate : public Gate {
+ public:
+  OrGate() : Gate(2z, 1z, sf::Vector2f{2.0f, 3.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = inputPins[0].state || inputPins[1].state;
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class NotGate : public Gate {
+ public:
+  NotGate() : Gate(1z, 1z, sf::Vector2f{2.0f, 1.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = !inputPins[0].state;
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class InputButton : public Gate {
+ public:
+  InputButton() : Gate(0z, 1z) { body.setFillColor(sf::Color::Red); }
+
+  void toggle() {
+    outputPins[0].state = !outputPins[0].state;
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+  void updateLogic() override {}
 };
 
 class WiresManager {
@@ -208,8 +242,9 @@ class GatesManager {
  public:
   std::vector<std::unique_ptr<Gate>> gates;
 
-  void createAndGate(sf::Vector2f position) {
-    auto gate = std::make_unique<AndGate>();
+  template <std::derived_from<Gate> G>
+  void create(sf::Vector2f position) {
+    auto gate = std::make_unique<G>();
     gate->body.setPosition(Grid::snapPoint(position));
     gates.push_back(std::move(gate));
   }
@@ -262,18 +297,6 @@ class Simulation {
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
         grid{static_cast<sf::Vector2f>(windowSize)} {
     window.setFramerateLimit(30u);
-
-    sf::Vector2f center{windowSize.x / 2.0f, windowSize.y / 2.0f};
-    center.x -= 100.0f;
-    center.y -= 50.0f;
-
-    sf::Vector2f gate1Pos{center};
-    gate1Pos.x -= 100.0f;
-    gatesManager.createAndGate(gate1Pos);
-
-    sf::Vector2f gate2Pos{center};
-    gate2Pos.x += 100.0f;
-    gatesManager.createAndGate(gate2Pos);
   }
 
   void start() {
@@ -353,6 +376,34 @@ class Simulation {
     while (const auto event = window.pollEvent()) {
       if (event->is<sf::Event::Closed>()) {
         exit();
+      } else if (const auto* mouseButtonPressed =
+                     event->getIf<sf::Event::MouseButtonPressed>()) {
+        if (mouseButtonPressed->button == sf::Mouse::Button::Left) {
+          auto gate = gatesManager.getGateAt(
+              window.mapPixelToCoords(mouseButtonPressed->position));
+          if (auto* inputButton = dynamic_cast<InputButton*>(gate)) {
+            inputButton->toggle();
+          }
+        }
+      } else if (const auto* keyPressed =
+                     event->getIf<sf::Event::KeyPressed>()) {
+        sf::Vector2f mousePos =
+            window.mapPixelToCoords(sf::Mouse::getPosition(window));
+        switch (keyPressed->scancode) {
+          case sf::Keyboard::Scancode::Num1:
+            gatesManager.create<InputButton>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::Num2:
+            gatesManager.create<AndGate>(mousePos);
+            break;
+          case sf::Keyboard::Scancode::Num3:
+            gatesManager.create<OrGate>(mousePos);
+            break;
+          case sf::Keyboard::Scancode::Num4:
+            gatesManager.create<NotGate>(mousePos);
+            break;
+        }
       }
     }
   }
@@ -377,7 +428,8 @@ class Simulation {
 };
 
 int main() {
-  Simulation sim(sf::Vector2u{800u, 400u});
+  Simulation sim(sf::Vector2u{static_cast<int>(Grid::CELL_SIZE * 26),
+                              static_cast<int>(Grid::CELL_SIZE * 13)});
   sim.start();
 
   return 0;
