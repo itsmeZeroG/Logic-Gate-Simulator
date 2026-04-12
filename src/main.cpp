@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -177,6 +178,18 @@ class WiresManager {
  public:
   std::vector<std::unique_ptr<Wire>> wires;
 
+  bool connectionExists(Pin* startPin, Pin* endPin) const {
+    return std::any_of(
+        wires.begin(), wires.end(), [&startPin, &endPin](const auto& w) {
+          return ((w->startPin == startPin && w->endPin == endPin) ||
+                  (w->startPin == endPin && w->endPin == startPin));
+        });
+  }
+
+  bool canConnect(Pin* startPin, Pin* endPin) const {
+    return startPin != endPin && startPin->type != endPin->type;
+  }
+
   void createWire(Pin* startPin, Pin* endPin) {
     auto wire = std::make_unique<Wire>(startPin, endPin);
     wires.push_back(std::move(wire));
@@ -261,9 +274,6 @@ class Simulation {
     sf::Vector2f gate2Pos{center};
     gate2Pos.x += 100.0f;
     gatesManager.createAndGate(gate2Pos);
-
-    wiresManager.createWire(&gatesManager.gates[0]->outputPins[0],
-                            &gatesManager.gates[1]->inputPins[0]);
   }
 
   void start() {
@@ -318,8 +328,8 @@ class Simulation {
 
       // Just released a pin
       auto endPin = gatesManager.getPinAt(mousePos);
-      if (endPin != nullptr && selectedPin != endPin &&
-          selectedPin->type != endPin->type)
+      if (endPin != nullptr && wiresManager.canConnect(selectedPin, endPin) &&
+          !wiresManager.connectionExists(selectedPin, endPin))
         wiresManager.createWire(selectedPin, endPin);
 
       selectedPin = nullptr;
