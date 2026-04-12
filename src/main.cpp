@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -34,11 +35,15 @@ class Grid {
   void render(sf::RenderWindow& window) { window.draw(vertices); }
 };
 
+enum class PinType : uint8_t { Input, Output };
 class Pin {
  public:
   bool state{false};
+  PinType type;
 
   sf::CircleShape body{Grid::CELL_SIZE / 4.0f};
+
+  Pin(PinType pinType) : type{pinType} {}
 
   void render(sf::RenderWindow& window) {
     body.setFillColor(sf::Color::Blue);
@@ -51,7 +56,17 @@ class Wire {
  public:
   Pin* startPin{nullptr};
   Pin* endPin{nullptr};
-  sf::VertexArray vertices{sf::PrimitiveType::Lines, 2};
+  sf::VertexArray vertices{sf::PrimitiveType::LineStrip, 4};
+
+  static void calcuateRouting(sf::VertexArray& routingVertices,
+                              sf::Vector2f startPos, sf::Vector2f endPos) {
+    float midX = startPos.x + (endPos.x - startPos.x) / 2.0f;
+
+    routingVertices[0].position = startPos;
+    routingVertices[1].position = sf::Vector2f{midX, startPos.y};
+    routingVertices[2].position = sf::Vector2f{midX, endPos.y};
+    routingVertices[3].position = endPos;
+  }
 
   Wire(Pin* startingPin, Pin* endingPin)
       : startPin{startingPin}, endPin{endingPin} {}
@@ -64,11 +79,11 @@ class Wire {
 
   void render(sf::RenderWindow& window) {
     if (startPin != nullptr && endPin != nullptr) {
-      vertices[0].position = startPin->body.getPosition();
-      vertices[1].position = endPin->body.getPosition();
+      calcuateRouting(vertices, startPin->body.getPosition(),
+                      endPin->body.getPosition());
 
-      vertices[0].color = sf::Color::Yellow;
-      vertices[1].color = sf::Color::Yellow;
+      for (size_t i = 0; i < vertices.getVertexCount(); i++)
+        vertices[i].color = sf::Color::Yellow;
 
       window.draw(vertices);
     }
@@ -82,7 +97,7 @@ class Gate {
   std::vector<Pin> inputPins;
   std::vector<Pin> outputPins;
 
-  unsigned char opacity{255u};
+  uint8_t opacity{255u};
 
   Gate(size_t inputCount = 1z, size_t outputCount = 1z) {
     inputPins.reserve(inputCount);
@@ -91,8 +106,10 @@ class Gate {
     sf::Vector2f bodyPos = body.getPosition();
     sf::Vector2f bodySize = body.getSize();
 
-    for (size_t i = 0z; i < inputCount; i++) inputPins.emplace_back();
-    for (size_t i = 0z; i < outputCount; i++) outputPins.emplace_back();
+    for (size_t i = 0z; i < inputCount; i++)
+      inputPins.emplace_back(PinType::Input);
+    for (size_t i = 0z; i < outputCount; i++)
+      outputPins.emplace_back(PinType::Output);
 
     body.setSize(sf::Vector2f{Grid::CELL_SIZE * 4.0f, Grid::CELL_SIZE * 3.0f});
     body.setFillColor(sf::Color::Blue);
@@ -117,7 +134,7 @@ class Gate {
     }
 
     for (size_t i = 0z; i < outputPins.capacity(); i++) {
-      auto& pin{outputPins[i]};
+      auto& pin = outputPins[i];
 
       pin.body.setOrigin(pin.body.getGeometricCenter());
 
@@ -220,8 +237,13 @@ class Simulation {
   Grid grid;
 
   bool rmbPressed{false};
+  bool lmbPressed{false};
+
   Gate* selectedGate{nullptr};
   sf::Vector2f dragOffset{0.0f, 0.0f};
+
+  Pin* selectedPin{nullptr};
+  sf::VertexArray previewWireVertices{sf::PrimitiveType::LineStrip, 4};
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
@@ -286,6 +308,37 @@ class Simulation {
     selectedGate->body.setPosition(mousePos - dragOffset);
   }
 
+  void handleWireDragging() {
+    lmbPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
+    sf::Vector2f mousePos =
+        window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (!lmbPressed) {
+      if (selectedPin == nullptr) return;
+
+      // Just released a pin
+      auto endPin = gatesManager.getPinAt(mousePos);
+      if (endPin != nullptr && selectedPin != endPin &&
+          selectedPin->type != endPin->type)
+        wiresManager.createWire(selectedPin, endPin);
+
+      selectedPin = nullptr;
+
+      return;
+    };
+
+    if (selectedPin == nullptr) {
+      selectedPin = gatesManager.getPinAt(mousePos);
+      return;
+    }
+
+    Wire::calcuateRouting(previewWireVertices, selectedPin->body.getPosition(),
+                          mousePos);
+
+    for (size_t i = 0; i < previewWireVertices.getVertexCount(); i++)
+      previewWireVertices[i].color = sf::Color::Yellow;
+  }
+
   void handleEvents() {
     while (const auto event = window.pollEvent()) {
       if (event->is<sf::Event::Closed>()) {
@@ -296,6 +349,7 @@ class Simulation {
 
   void update() {
     handleGateMove();
+    handleWireDragging();
     wiresManager.update();
     gatesManager.update();
   }
@@ -305,6 +359,7 @@ class Simulation {
 
     grid.render(window);
     wiresManager.render(window);
+    if (selectedPin != nullptr) window.draw(previewWireVertices);
     gatesManager.render(window);
 
     window.display();
