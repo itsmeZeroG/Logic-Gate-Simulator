@@ -187,6 +187,46 @@ class OrGate : public Gate {
   }
 };
 
+class NandGate : public Gate {
+ public:
+  NandGate() : Gate(2z, 1z, sf::Vector2f{3.0f, 2.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = !(inputPins[0].state && inputPins[1].state);
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class NorGate : public Gate {
+ public:
+  NorGate() : Gate(2z, 1z, sf::Vector2f{2.0f, 3.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = !(inputPins[0].state || inputPins[1].state);
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class XorGate : public Gate {
+ public:
+  XorGate() : Gate(2z, 1z, sf::Vector2f{3.0f, 2.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = inputPins[0].state != inputPins[1].state;
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
+class XnorGate : public Gate {
+ public:
+  XnorGate() : Gate(2z, 1z, sf::Vector2f{2.0f, 3.0f}) {}
+
+  void updateLogic() override {
+    outputPins[0].state = inputPins[0].state == inputPins[1].state;
+    body.setFillColor(outputPins[0].state ? sf::Color::Green : sf::Color::Red);
+  }
+};
+
 class NotGate : public Gate {
  public:
   NotGate() : Gate(1z, 1z, sf::Vector2f{2.0f, 1.0f}) {}
@@ -357,6 +397,9 @@ class Simulation {
 
       selectedPin = nullptr;
 
+      for (size_t i = 0; i < previewWireVertices.getVertexCount(); i++)
+        previewWireVertices[i].position = sf::Vector2f{0.0f, 0.0f};
+
       return;
     };
 
@@ -395,13 +438,31 @@ class Simulation {
             break;
 
           case sf::Keyboard::Scancode::Num2:
+            gatesManager.create<NotGate>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::Num3:
             gatesManager.create<AndGate>(mousePos);
             break;
-          case sf::Keyboard::Scancode::Num3:
+
+          case sf::Keyboard::Scancode::Num4:
             gatesManager.create<OrGate>(mousePos);
             break;
-          case sf::Keyboard::Scancode::Num4:
-            gatesManager.create<NotGate>(mousePos);
+
+          case sf::Keyboard::Scancode::Num5:
+            gatesManager.create<NandGate>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::Num6:
+            gatesManager.create<NorGate>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::Num7:
+            gatesManager.create<XorGate>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::Num8:
+            gatesManager.create<XnorGate>(mousePos);
             break;
         }
       }

@@ -8,4 +8,4 @@ A hobby project to try and make a program to simulate logic gates
 
 - [x] Make the basic gates: AND, OR, NOT
 - [x] Make wires
-- [ ] Make the derived gates: NAND, NOR
+- [x] Make the derived gates: NAND, NOR
