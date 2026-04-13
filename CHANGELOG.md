@@ -9,4 +9,3 @@
   testing.
 - **Simple Wiring:** Added wires used to connect two or more gates together.
 - **Grid Snapping:** Added snapping gates to the grid.
-- 
