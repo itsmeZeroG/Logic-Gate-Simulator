@@ -39,27 +39,38 @@ class Grid {
         break;
 
       case GridType::Dots:
-        float dotSize = 2.0f;
+        float dotRadius = 1.0f;
         vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
         vertices.clear();
 
         for (auto x = 0.0f; x <= windowSize.x; x += CELL_SIZE) {
           for (auto y = 0.0f; y <= windowSize.y; y += CELL_SIZE) {
-            sf::Vector2f offset{x - dotSize / 2.0f, y - dotSize / 2.0f};
+            sf::Color fadedColor{color};
+            fadedColor.a = 0u;
 
-            vertices.append(
-                sf::Vertex{sf::Vector2f{offset.x, offset.y}, color});
-            vertices.append(
-                sf::Vertex{sf::Vector2f{offset.x + dotSize, offset.y}, color});
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
             vertices.append(sf::Vertex{
-                sf::Vector2f{offset.x + dotSize, offset.y + dotSize}, color});
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
 
-            vertices.append(
-                sf::Vertex{sf::Vector2f{offset.x, offset.y}, color});
-            vertices.append(
-                sf::Vertex{sf::Vector2f{offset.x, offset.y + dotSize}, color});
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
             vertices.append(sf::Vertex{
-                sf::Vector2f{offset.x + dotSize, offset.y + dotSize}, color});
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
           }
         }
         break;
