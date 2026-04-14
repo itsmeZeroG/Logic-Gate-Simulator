@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
+#include <numbers>
 #include <vector>
 
 class Grid {
@@ -92,79 +93,92 @@ class Wire {
   }
 };
 
-class Gate {
+class GateShapeGenerator {
+ protected:
  public:
-  sf::RectangleShape body;
+  static sf::ConvexShape ANDGate() {
+    sf::ConvexShape shape;
 
+    sf::Vector2f size{Grid::CELL_SIZE * 3, Grid::CELL_SIZE * 3};
+    int arcPoints = 30;
+    int backPoints = 2;
+
+    shape.setPointCount(arcPoints + backPoints);
+
+    shape.setPoint(0, sf::Vector2f{0.0f, 0.0f});
+
+    float arcRadius = size.x / 2.0f;
+    sf::Vector2f center = size / 2.0f;
+
+    for (int i = 0; i <= arcPoints; i++) {
+      float angleRad =
+          (-90.0f + (180.0f * i / arcPoints)) * std::numbers::pi / 180.0f;
+
+      sf::Vector2f point{center};
+      point.x += arcRadius * std::cos(angleRad);
+      point.y += arcRadius * std::sin(angleRad);
+
+      shape.setPoint(i + 1, point);
+    }
+
+    shape.setPoint(arcPoints + 1, sf::Vector2f{0, size.y});
+
+    shape.setFillColor(sf::Color{40u, 40u, 40u});
+
+    shape.setOutlineThickness(2.0f);
+    shape.setOutlineColor(sf::Color::White);
+    shape.setOrigin(size / 2.0f);
+
+    return shape;
+  }
+};
+
+class GateRenderer {
+ private:
+  sf::ConvexShape body;
+
+ public:
+  GateRenderer(sf::ConvexShape shape) : body(shape) {}
+
+  void setPosition(float x, float y) { body.setPosition(sf::Vector2f{x, y}); }
+  sf::Vector2f getPosition() const { return body.getPosition(); }
+  void update(bool isPowered) {
+    if (isPowered)
+      body.setFillColor(sf::Color::Green);
+    else
+      body.setFillColor(sf::Color::Red);
+  }
+
+  void draw(sf::RenderWindow& window) { window.draw(body); }
+};
+
+class Gate {
+ protected:
   std::vector<Pin> inputPins;
   std::vector<Pin> outputPins;
 
-  uint8_t opacity{255u};
-
-  Gate(size_t inputCount = 1z, size_t outputCount = 1z,
-       sf::Vector2f gateSize = sf::Vector2f{1.0f, 1.0f}) {
+ public:
+  Gate(size_t inputCount = 1z, size_t outputCount = 1z) {
     inputPins.reserve(inputCount);
     outputPins.reserve(outputCount);
-
-    sf::Vector2f bodyPos = body.getPosition();
-    sf::Vector2f bodySize = body.getSize();
 
     for (size_t i = 0z; i < inputCount; i++)
       inputPins.emplace_back(PinType::Input);
     for (size_t i = 0z; i < outputCount; i++)
       outputPins.emplace_back(PinType::Output);
-
-    body.setSize(sf::Vector2f{Grid::CELL_SIZE * gateSize.x,
-                              Grid::CELL_SIZE * gateSize.y});
-    body.setFillColor(sf::Color::Blue);
   }
 
-  virtual void updateLogic() = 0;
-  void updatePins() {
-    sf::Vector2f bodyPos = body.getPosition();
-    sf::Vector2f bodySize = body.getSize();
+  bool getPinState(PinType type, size_t index) const {
+    const auto pinCount =
+        type == PinType::Input ? inputPins.capacity() : outputPins.capacity();
 
-    for (size_t i = 0z; i < inputPins.capacity(); i++) {
-      auto& pin = inputPins[i];
+    if (index < 0 || index >= pinCount)
+      throw PinOutOfBoundsError(index, outputSize);
 
-      pin.body.setOrigin(pin.body.getGeometricCenter());
-
-      float posY = bodyPos.y;
-      float pinRegionSize = bodySize.y / inputPins.capacity();
-      posY += i * pinRegionSize;
-      posY += pinRegionSize / 2.0f;
-
-      pin.body.setPosition(sf::Vector2f{bodyPos.x, posY});
-    }
-
-    for (size_t i = 0z; i < outputPins.capacity(); i++) {
-      auto& pin = outputPins[i];
-
-      pin.body.setOrigin(pin.body.getGeometricCenter());
-
-      float posY = bodyPos.y;
-      float pinRegionSize = bodySize.y / outputPins.capacity();
-      posY += i * pinRegionSize;
-      posY += pinRegionSize / 2.0f;
-
-      pin.body.setPosition(sf::Vector2f{bodyPos.x + bodySize.x, posY});
-    }
+    return outputPins[index].state;
   }
-  virtual void update() {
-    updatePins();
-    updateLogic();
-  };
 
-  void render(sf::RenderWindow& window) {
-    sf::Color bodyColor = body.getFillColor();
-    bodyColor.a = opacity;
-
-    body.setFillColor(bodyColor);
-
-    window.draw(body);
-    for (auto& pin : inputPins) pin.render(window);
-    for (auto& pin : outputPins) pin.render(window);
-  }
+  virtual void update() = 0;
 };
 
 class AndGate : public Gate {
