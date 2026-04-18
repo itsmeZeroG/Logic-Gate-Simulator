@@ -320,7 +320,10 @@ class WiresManager {
           return isSameConnection(w.get(), startPin, endPin);
         });
 
-    if (w != wires.end()) wires.erase(w);
+    if (w != wires.end()) {
+      endPin->state = false;
+      wires.erase(w);
+    }
   }
 
   void update() {
