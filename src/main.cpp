@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+enum class GridType : uint8_t { Lines, Dots };
+
 class Grid {
  private:
   sf::VertexArray vertices;
@@ -17,20 +19,61 @@ class Grid {
                         std::round(pos.y / CELL_SIZE) * CELL_SIZE};
   }
 
-  Grid(sf::Vector2f windowSize) {
-    vertices.setPrimitiveType(sf::PrimitiveType::Lines);
-    vertices.clear();
+  sf::Color color{36u, 36u, 36u};
 
-    sf::Color gridColor{36u, 36u, 36u};
+  Grid(sf::Vector2f windowSize, GridType type) {
+    switch (type) {
+      case GridType::Lines:
+        vertices.setPrimitiveType(sf::PrimitiveType::Lines);
+        vertices.clear();
 
-    for (auto x = 0.0f; x < windowSize.x; x += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{x, 0.0f}, gridColor});
-      vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, gridColor});
-    }
+        for (auto x = 0.0f; x < windowSize.x; x += CELL_SIZE) {
+          vertices.append(sf::Vertex{sf::Vector2f{x, 0.0f}, color});
+          vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, color});
+        }
 
-    for (auto y = 0.0f; y < windowSize.y; y += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{0.0f, y}, gridColor});
-      vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, gridColor});
+        for (auto y = 0.0f; y < windowSize.y; y += CELL_SIZE) {
+          vertices.append(sf::Vertex{sf::Vector2f{0.0f, y}, color});
+          vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, color});
+        }
+        break;
+
+      case GridType::Dots:
+        float dotRadius = 1.5f;
+        vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
+        vertices.clear();
+
+        for (auto x = 0.0f; x <= windowSize.x; x += CELL_SIZE) {
+          for (auto y = 0.0f; y <= windowSize.y; y += CELL_SIZE) {
+            sf::Color fadedColor{color};
+            fadedColor.a = 0u;
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
+          }
+        }
+        break;
     }
   }
 
@@ -335,7 +378,7 @@ class Simulation {
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
-        grid{static_cast<sf::Vector2f>(windowSize)} {
+        grid{static_cast<sf::Vector2f>(windowSize), GridType::Dots} {
     window.setFramerateLimit(30u);
   }
 
