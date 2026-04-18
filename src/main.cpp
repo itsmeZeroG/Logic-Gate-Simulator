@@ -39,7 +39,7 @@ class Grid {
         break;
 
       case GridType::Dots:
-        float dotRadius = 1.0f;
+        float dotRadius = 1.5f;
         vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
         vertices.clear();
 
