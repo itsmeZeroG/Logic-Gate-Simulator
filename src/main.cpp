@@ -97,6 +97,8 @@ class Pin {
   }
 };
 
+// TODO: Make vertices and calculateRouting private during refactor
+
 class Wire {
  public:
   Pin* startPin{nullptr};
@@ -295,21 +297,30 @@ class WiresManager {
  public:
   std::vector<std::unique_ptr<Wire>> wires;
 
-  bool connectionExists(Pin* startPin, Pin* endPin) const {
-    return std::any_of(
-        wires.begin(), wires.end(), [&startPin, &endPin](const auto& w) {
-          return ((w->startPin == startPin && w->endPin == endPin) ||
-                  (w->startPin == endPin && w->endPin == startPin));
-        });
+  static bool canConnect(Pin* startPin, Pin* endPin) {
+    return startPin != endPin && startPin->type != endPin->type;
   }
 
-  bool canConnect(Pin* startPin, Pin* endPin) const {
-    return startPin != endPin && startPin->type != endPin->type;
+  bool connectionExists(Pin* startPin, Pin* endPin) const {
+    return std::any_of(wires.begin(), wires.end(),
+                       [&startPin, &endPin](const std::unique_ptr<Wire>& w) {
+                         return isSameConnection(w.get(), startPin, endPin);
+                       });
   }
 
   void createWire(Pin* startPin, Pin* endPin) {
     auto wire = std::make_unique<Wire>(startPin, endPin);
     wires.push_back(std::move(wire));
+  }
+
+  void deleteWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) wires.erase(w);
   }
 
   void update() {
@@ -318,6 +329,13 @@ class WiresManager {
 
   void render(sf::RenderWindow& window) {
     for (auto& w : wires) w->render(window);
+  }
+
+ private:
+  static bool isSameConnection(const Wire* w, const Pin* startPin,
+                               const Pin* endPin) {
+    return ((w->startPin == startPin && w->endPin == endPin) ||
+            (w->startPin == endPin && w->endPin == startPin));
   }
 };
 
@@ -360,6 +378,7 @@ class GatesManager {
   }
 };
 
+// TODO: Refactor access specifiers
 class Simulation {
  public:
   GatesManager gatesManager;
@@ -434,9 +453,12 @@ class Simulation {
 
       // Just released a pin
       auto endPin = gatesManager.getPinAt(mousePos);
-      if (endPin != nullptr && wiresManager.canConnect(selectedPin, endPin) &&
-          !wiresManager.connectionExists(selectedPin, endPin))
-        wiresManager.createWire(selectedPin, endPin);
+      if (endPin != nullptr && WiresManager::canConnect(selectedPin, endPin)) {
+        if (wiresManager.connectionExists(selectedPin, endPin))
+          wiresManager.deleteWire(selectedPin, endPin);
+        else
+          wiresManager.createWire(selectedPin, endPin);
+      }
 
       selectedPin = nullptr;
 
