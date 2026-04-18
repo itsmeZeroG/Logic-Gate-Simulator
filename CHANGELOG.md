@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- **New Grid Style:** Added a new dot style grid for a minimal look.
+
 ## v1.0.0 - 13 April 2026
 
 ### Added
