@@ -311,7 +311,17 @@ class WiresManager {
                        });
   }
 
-  void createWire(Pin* startPin, Pin* endPin) {
+  void createWire(Pin* pin1, Pin* pin2) {
+    Pin* startPin;
+    Pin* endPin;
+    if (pin1->type == PinType::Output) {
+      startPin = pin1;
+      endPin = pin2;
+    } else {
+      startPin = pin2;
+      endPin = pin1;
+    }
+
     auto wire = std::make_unique<Wire>(startPin, endPin);
     wires.push_back(std::move(wire));
   }
@@ -324,7 +334,11 @@ class WiresManager {
         });
 
     if (w != wires.end()) {
-      endPin->state = false;
+      if (startPin->type == PinType::Input)
+        startPin->state = false;
+      else
+        endPin->state = false;
+
       wires.erase(w);
     }
   }
