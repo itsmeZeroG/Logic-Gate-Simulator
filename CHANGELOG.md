@@ -1,8 +1,12 @@
 # Changelog
 
 ## Unreleased
+
+### Added
+
 - **New Grid Style:** Added a new dot style grid for a minimal look.
 - **Wire Removal:** Added a way to remove wires by redrag the connection.
+
 ## v1.0.0 - 13 April 2026
 
 ### Added
