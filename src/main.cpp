@@ -20,9 +20,10 @@ class Grid {
   }
 
   sf::Color color{36u, 36u, 36u};
+  GridType style;
 
-  Grid(sf::Vector2f windowSize, GridType type) {
-    switch (type) {
+  void create(sf::Vector2f windowSize) {
+    switch (style) {
       case GridType::Lines:
         vertices.setPrimitiveType(sf::PrimitiveType::Lines);
         vertices.clear();
@@ -440,9 +441,11 @@ class Simulation {
   Wire* wireToDelete{nullptr};
 
   Simulation(sf::Vector2u windowSize)
-      : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
-        grid{static_cast<sf::Vector2f>(windowSize), GridType::Dots} {
+      : window{sf::VideoMode(windowSize), "Logic Gates Simulation"} {
     window.setFramerateLimit(30u);
+
+    grid.style = GridType::Dots;
+    grid.create(static_cast<sf::Vector2f>(window.getSize()));
   }
 
   void start() {
@@ -621,6 +624,12 @@ class Simulation {
 
           case sf::Keyboard::Scancode::Num8:
             gatesManager.create<XnorGate>(mousePos);
+            break;
+
+          case sf::Keyboard::Scancode::F1:
+            grid.style = grid.style == GridType::Lines ? GridType::Dots
+                                                       : GridType::Lines;
+            grid.create(static_cast<sf::Vector2f>(window.getSize()));
             break;
         }
       }
