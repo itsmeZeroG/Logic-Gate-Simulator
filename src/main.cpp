@@ -382,7 +382,8 @@ class GatesManager {
   template <std::derived_from<Gate> G>
   void create(sf::Vector2f position) {
     auto gate = std::make_unique<G>();
-    gate->body.setPosition(Grid::snapPoint(position));
+    gate->body.setPosition(
+        Grid::snapPoint(position - gate->body.getGeometricCenter()));
     gates.push_back(std::move(gate));
   }
 
