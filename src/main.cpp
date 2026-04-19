@@ -97,11 +97,15 @@ class Pin {
   }
 };
 
+// TODO: Make vertices and calculateRouting private during refactor
+
 class Wire {
  public:
   Pin* startPin{nullptr};
   Pin* endPin{nullptr};
   sf::VertexArray vertices{sf::PrimitiveType::LineStrip, 4};
+
+  bool showDeleteIndicator{false};
 
   static void calcuateRouting(sf::VertexArray& routingVertices,
                               sf::Vector2f startPos, sf::Vector2f endPos) {
@@ -128,7 +132,8 @@ class Wire {
                       endPin->body.getPosition());
 
       for (size_t i = 0; i < vertices.getVertexCount(); i++)
-        vertices[i].color = sf::Color::Yellow;
+        vertices[i].color =
+            showDeleteIndicator ? sf::Color::Red : sf::Color::Yellow;
 
       window.draw(vertices);
     }
@@ -295,21 +300,47 @@ class WiresManager {
  public:
   std::vector<std::unique_ptr<Wire>> wires;
 
-  bool connectionExists(Pin* startPin, Pin* endPin) const {
-    return std::any_of(
-        wires.begin(), wires.end(), [&startPin, &endPin](const auto& w) {
-          return ((w->startPin == startPin && w->endPin == endPin) ||
-                  (w->startPin == endPin && w->endPin == startPin));
-        });
+  static bool canConnect(Pin* startPin, Pin* endPin) {
+    return startPin != endPin && startPin->type != endPin->type;
   }
 
-  bool canConnect(Pin* startPin, Pin* endPin) const {
-    return startPin != endPin && startPin->type != endPin->type;
+  bool connectionExists(Pin* startPin, Pin* endPin) const {
+    return std::any_of(wires.begin(), wires.end(),
+                       [&startPin, &endPin](const std::unique_ptr<Wire>& w) {
+                         return isSameConnection(w.get(), startPin, endPin);
+                       });
   }
 
   void createWire(Pin* startPin, Pin* endPin) {
     auto wire = std::make_unique<Wire>(startPin, endPin);
     wires.push_back(std::move(wire));
+  }
+
+  void deleteWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) {
+      endPin->state = false;
+      wires.erase(w);
+    }
+  }
+
+  Wire* getWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) {
+      return w->get();
+    }
+
+    return nullptr;
   }
 
   void update() {
@@ -318,6 +349,13 @@ class WiresManager {
 
   void render(sf::RenderWindow& window) {
     for (auto& w : wires) w->render(window);
+  }
+
+ private:
+  static bool isSameConnection(const Wire* w, const Pin* startPin,
+                               const Pin* endPin) {
+    return ((w->startPin == startPin && w->endPin == endPin) ||
+            (w->startPin == endPin && w->endPin == startPin));
   }
 };
 
@@ -360,6 +398,7 @@ class GatesManager {
   }
 };
 
+// TODO: Refactor access specifiers
 class Simulation {
  public:
   GatesManager gatesManager;
@@ -375,6 +414,7 @@ class Simulation {
 
   Pin* selectedPin{nullptr};
   sf::VertexArray previewWireVertices{sf::PrimitiveType::LineStrip, 4};
+  Wire* wireToDelete{nullptr};
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
@@ -425,18 +465,49 @@ class Simulation {
   }
 
   void handleWireDragging() {
+    sf::Color previewWireColor = sf::Color::Green;
     lmbPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
     sf::Vector2f mousePos =
         window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (wireToDelete != nullptr) {
+      wireToDelete->showDeleteIndicator = false;
+      wireToDelete = nullptr;
+    }
+
+    auto endPin = gatesManager.getPinAt(mousePos);
+    if (lmbPressed && selectedPin != nullptr && endPin != nullptr) {
+      if (endPin == selectedPin)
+        endPin = nullptr;
+      else {
+        wireToDelete = wiresManager.getWire(selectedPin, endPin);
+        if (wireToDelete != nullptr) {
+          auto wireIt =
+              std::find_if(wiresManager.wires.begin(), wiresManager.wires.end(),
+                           [this](const std::unique_ptr<Wire>& w) {
+                             return wireToDelete == w.get();
+                           });
+
+          if (wireIt != wiresManager.wires.end()) {
+            std::rotate(wiresManager.wires.begin(), wireIt, wireIt + 1);
+
+            wireToDelete->showDeleteIndicator = true;
+            previewWireColor = sf::Color::Transparent;
+          }
+        }
+      }
+    }
 
     if (!lmbPressed) {
       if (selectedPin == nullptr) return;
 
       // Just released a pin
-      auto endPin = gatesManager.getPinAt(mousePos);
-      if (endPin != nullptr && wiresManager.canConnect(selectedPin, endPin) &&
-          !wiresManager.connectionExists(selectedPin, endPin))
-        wiresManager.createWire(selectedPin, endPin);
+      if (endPin != nullptr && WiresManager::canConnect(selectedPin, endPin)) {
+        if (wiresManager.connectionExists(selectedPin, endPin))
+          wiresManager.deleteWire(selectedPin, endPin);
+        else
+          wiresManager.createWire(selectedPin, endPin);
+      }
 
       selectedPin = nullptr;
 
@@ -455,7 +526,7 @@ class Simulation {
                           mousePos);
 
     for (size_t i = 0; i < previewWireVertices.getVertexCount(); i++)
-      previewWireVertices[i].color = sf::Color::Yellow;
+      previewWireVertices[i].color = previewWireColor;
   }
 
   void handleEvents() {
