@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
+#include <print>
 #include <vector>
 
 enum class GridType : uint8_t { Lines, Dots };
@@ -105,6 +106,8 @@ class Wire {
   Pin* endPin{nullptr};
   sf::VertexArray vertices{sf::PrimitiveType::LineStrip, 4};
 
+  bool showDeleteIndicator{false};
+
   static void calcuateRouting(sf::VertexArray& routingVertices,
                               sf::Vector2f startPos, sf::Vector2f endPos) {
     float midX = startPos.x + (endPos.x - startPos.x) / 2.0f;
@@ -130,7 +133,8 @@ class Wire {
                       endPin->body.getPosition());
 
       for (size_t i = 0; i < vertices.getVertexCount(); i++)
-        vertices[i].color = sf::Color::Yellow;
+        vertices[i].color =
+            showDeleteIndicator ? sf::Color::Red : sf::Color::Yellow;
 
       window.draw(vertices);
     }
@@ -326,6 +330,20 @@ class WiresManager {
     }
   }
 
+  Wire* getWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) {
+      return w->get();
+    }
+
+    return nullptr;
+  }
+
   void update() {
     for (auto& w : wires) w->update();
   }
@@ -397,6 +415,7 @@ class Simulation {
 
   Pin* selectedPin{nullptr};
   sf::VertexArray previewWireVertices{sf::PrimitiveType::LineStrip, 4};
+  Wire* wireToDelete{nullptr};
 
   Simulation(sf::Vector2u windowSize)
       : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
@@ -447,15 +466,34 @@ class Simulation {
   }
 
   void handleWireDragging() {
+    sf::Color previewWireColor = sf::Color::Green;
     lmbPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
     sf::Vector2f mousePos =
         window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (wireToDelete != nullptr) {
+      wireToDelete->showDeleteIndicator = false;
+      wireToDelete = nullptr;
+    }
+
+    auto endPin = gatesManager.getPinAt(mousePos);
+    if (lmbPressed && selectedPin != nullptr && endPin != nullptr) {
+      if (endPin == selectedPin)
+        endPin = nullptr;
+      else {
+        wireToDelete = wiresManager.getWire(selectedPin, endPin);
+        if (wireToDelete != nullptr) {
+          wireToDelete->showDeleteIndicator = true;
+          previewWireColor = sf::Color::Transparent;
+        }
+      }
+    }
 
     if (!lmbPressed) {
       if (selectedPin == nullptr) return;
 
       // Just released a pin
-      auto endPin = gatesManager.getPinAt(mousePos);
+      // endPin = gatesManager.getPinAt(mousePos);
       if (endPin != nullptr && WiresManager::canConnect(selectedPin, endPin)) {
         if (wiresManager.connectionExists(selectedPin, endPin))
           wiresManager.deleteWire(selectedPin, endPin);
@@ -480,7 +518,7 @@ class Simulation {
                           mousePos);
 
     for (size_t i = 0; i < previewWireVertices.getVertexCount(); i++)
-      previewWireVertices[i].color = sf::Color::Yellow;
+      previewWireVertices[i].color = previewWireColor;
   }
 
   void handleEvents() {
