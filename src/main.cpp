@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+enum class GridType : uint8_t { Lines, Dots };
+
 class Grid {
  private:
   sf::VertexArray vertices;
@@ -17,20 +19,62 @@ class Grid {
                         std::round(pos.y / CELL_SIZE) * CELL_SIZE};
   }
 
-  Grid(sf::Vector2f windowSize) {
-    vertices.setPrimitiveType(sf::PrimitiveType::Lines);
-    vertices.clear();
+  sf::Color color{36u, 36u, 36u};
+  GridType style;
 
-    sf::Color gridColor{36u, 36u, 36u};
+  void create(sf::Vector2f windowSize) {
+    switch (style) {
+      case GridType::Lines:
+        vertices.setPrimitiveType(sf::PrimitiveType::Lines);
+        vertices.clear();
 
-    for (auto x = 0.0f; x < windowSize.x; x += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{x, 0.0f}, gridColor});
-      vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, gridColor});
-    }
+        for (auto x = 0.0f; x < windowSize.x; x += CELL_SIZE) {
+          vertices.append(sf::Vertex{sf::Vector2f{x, 0.0f}, color});
+          vertices.append(sf::Vertex{sf::Vector2f{x, windowSize.y}, color});
+        }
 
-    for (auto y = 0.0f; y < windowSize.y; y += CELL_SIZE) {
-      vertices.append(sf::Vertex{sf::Vector2f{0.0f, y}, gridColor});
-      vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, gridColor});
+        for (auto y = 0.0f; y < windowSize.y; y += CELL_SIZE) {
+          vertices.append(sf::Vertex{sf::Vector2f{0.0f, y}, color});
+          vertices.append(sf::Vertex{sf::Vector2f{windowSize.x, y}, color});
+        }
+        break;
+
+      case GridType::Dots:
+        float dotRadius = 1.5f;
+        vertices.setPrimitiveType(sf::PrimitiveType::Triangles);
+        vertices.clear();
+
+        for (auto x = 0.0f; x <= windowSize.x; x += CELL_SIZE) {
+          for (auto y = 0.0f; y <= windowSize.y; y += CELL_SIZE) {
+            sf::Color fadedColor{color};
+            fadedColor.a = 0u;
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y - dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x + dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+
+            vertices.append(sf::Vertex{sf::Vector2f{x, y}, color});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y + dotRadius}, fadedColor});
+            vertices.append(sf::Vertex{
+                sf::Vector2f{x - dotRadius, y - dotRadius}, fadedColor});
+          }
+        }
+        break;
     }
   }
 
@@ -54,11 +98,15 @@ class Pin {
   }
 };
 
+// TODO: Make vertices and calculateRouting private during refactor
+
 class Wire {
  public:
   Pin* startPin{nullptr};
   Pin* endPin{nullptr};
   sf::VertexArray vertices{sf::PrimitiveType::LineStrip, 4};
+
+  bool showDeleteIndicator{false};
 
   static void calcuateRouting(sf::VertexArray& routingVertices,
                               sf::Vector2f startPos, sf::Vector2f endPos) {
@@ -73,6 +121,8 @@ class Wire {
   Wire(Pin* startingPin, Pin* endingPin)
       : startPin{startingPin}, endPin{endingPin} {}
 
+  ~Wire() { endPin->state = false; }
+
   void update() {
     if (startPin == nullptr || endPin == nullptr) return;
 
@@ -85,7 +135,8 @@ class Wire {
                       endPin->body.getPosition());
 
       for (size_t i = 0; i < vertices.getVertexCount(); i++)
-        vertices[i].color = sf::Color::Yellow;
+        vertices[i].color =
+            showDeleteIndicator ? sf::Color::Red : sf::Color::Yellow;
 
       window.draw(vertices);
     }
@@ -252,21 +303,61 @@ class WiresManager {
  public:
   std::vector<std::unique_ptr<Wire>> wires;
 
-  bool connectionExists(Pin* startPin, Pin* endPin) const {
-    return std::any_of(
-        wires.begin(), wires.end(), [&startPin, &endPin](const auto& w) {
-          return ((w->startPin == startPin && w->endPin == endPin) ||
-                  (w->startPin == endPin && w->endPin == startPin));
-        });
-  }
-
-  bool canConnect(Pin* startPin, Pin* endPin) const {
+  static bool canConnect(Pin* startPin, Pin* endPin) {
     return startPin != endPin && startPin->type != endPin->type;
   }
 
-  void createWire(Pin* startPin, Pin* endPin) {
+  bool connectionExists(Pin* startPin, Pin* endPin) const {
+    return std::any_of(wires.begin(), wires.end(),
+                       [&startPin, &endPin](const std::unique_ptr<Wire>& w) {
+                         return isSameConnection(w.get(), startPin, endPin);
+                       });
+  }
+
+  void createWire(Pin* pin1, Pin* pin2) {
+    Pin* startPin;
+    Pin* endPin;
+    if (pin1->type == PinType::Output) {
+      startPin = pin1;
+      endPin = pin2;
+    } else {
+      startPin = pin2;
+      endPin = pin1;
+    }
+
     auto wire = std::make_unique<Wire>(startPin, endPin);
     wires.push_back(std::move(wire));
+  }
+
+  void deleteWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) {
+      if (startPin->type == PinType::Input)
+        startPin->state = false;
+      else
+        endPin->state = false;
+
+      wires.erase(w);
+    }
+  }
+
+  Wire* getWire(Pin* startPin, Pin* endPin) {
+    auto w = std::find_if(
+        wires.begin(), wires.end(),
+        [&startPin, &endPin, this](const std::unique_ptr<Wire>& w) {
+          return isSameConnection(w.get(), startPin, endPin);
+        });
+
+    if (w != wires.end()) {
+      return w->get();
+    }
+
+    return nullptr;
   }
 
   void update() {
@@ -275,6 +366,13 @@ class WiresManager {
 
   void render(sf::RenderWindow& window) {
     for (auto& w : wires) w->render(window);
+  }
+
+ private:
+  static bool isSameConnection(const Wire* w, const Pin* startPin,
+                               const Pin* endPin) {
+    return ((w->startPin == startPin && w->endPin == endPin) ||
+            (w->startPin == endPin && w->endPin == startPin));
   }
 };
 
@@ -285,8 +383,15 @@ class GatesManager {
   template <std::derived_from<Gate> G>
   void create(sf::Vector2f position) {
     auto gate = std::make_unique<G>();
-    gate->body.setPosition(Grid::snapPoint(position));
+    gate->body.setPosition(
+        Grid::snapPoint(position - gate->body.getGeometricCenter()));
     gates.push_back(std::move(gate));
+  }
+
+  void remove(Gate* gate) {
+    std::erase_if(gates, [&gate](const std::unique_ptr<Gate>& g) {
+      return g.get() == gate;
+    });
   }
 
   Gate* getGateAt(sf::Vector2f pos) {
@@ -317,6 +422,7 @@ class GatesManager {
   }
 };
 
+// TODO: Refactor access specifiers
 class Simulation {
  public:
   GatesManager gatesManager;
@@ -332,11 +438,14 @@ class Simulation {
 
   Pin* selectedPin{nullptr};
   sf::VertexArray previewWireVertices{sf::PrimitiveType::LineStrip, 4};
+  Wire* wireToDelete{nullptr};
 
   Simulation(sf::Vector2u windowSize)
-      : window{sf::VideoMode(windowSize), "Logic Gates Simulation"},
-        grid{static_cast<sf::Vector2f>(windowSize)} {
+      : window{sf::VideoMode(windowSize), "Logic Gates Simulation"} {
     window.setFramerateLimit(30u);
+
+    grid.style = GridType::Dots;
+    grid.create(static_cast<sf::Vector2f>(window.getSize()));
   }
 
   void start() {
@@ -381,19 +490,71 @@ class Simulation {
     selectedGate->body.setPosition(mousePos - dragOffset);
   }
 
+  void handleGateRemoval() {
+    if (selectedGate == nullptr) return;
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete)) {
+      std::erase_if(wiresManager.wires, [this](const std::unique_ptr<Wire>& w) {
+        return std::any_of(selectedGate->inputPins.begin(),
+                           selectedGate->inputPins.end(),
+                           [&w](const Pin& p) {
+                             return w->startPin == &p || w->endPin == &p;
+                           }) ||
+               std::any_of(selectedGate->outputPins.begin(),
+                           selectedGate->outputPins.end(), [&w](const Pin& p) {
+                             return w->startPin == &p || w->endPin == &p;
+                           });
+      });
+
+      gatesManager.remove(selectedGate);
+      selectedGate = nullptr;
+    }
+  }
+
   void handleWireDragging() {
+    sf::Color previewWireColor = sf::Color::Green;
     lmbPressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
     sf::Vector2f mousePos =
         window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+    if (wireToDelete != nullptr) {
+      wireToDelete->showDeleteIndicator = false;
+      wireToDelete = nullptr;
+    }
+
+    auto endPin = gatesManager.getPinAt(mousePos);
+    if (lmbPressed && selectedPin != nullptr && endPin != nullptr) {
+      if (endPin == selectedPin)
+        endPin = nullptr;
+      else {
+        wireToDelete = wiresManager.getWire(selectedPin, endPin);
+        if (wireToDelete != nullptr) {
+          auto wireIt =
+              std::find_if(wiresManager.wires.begin(), wiresManager.wires.end(),
+                           [this](const std::unique_ptr<Wire>& w) {
+                             return wireToDelete == w.get();
+                           });
+
+          if (wireIt != wiresManager.wires.end()) {
+            std::rotate(wiresManager.wires.begin(), wireIt, wireIt + 1);
+
+            wireToDelete->showDeleteIndicator = true;
+            previewWireColor = sf::Color::Transparent;
+          }
+        }
+      }
+    }
 
     if (!lmbPressed) {
       if (selectedPin == nullptr) return;
 
       // Just released a pin
-      auto endPin = gatesManager.getPinAt(mousePos);
-      if (endPin != nullptr && wiresManager.canConnect(selectedPin, endPin) &&
-          !wiresManager.connectionExists(selectedPin, endPin))
-        wiresManager.createWire(selectedPin, endPin);
+      if (endPin != nullptr && WiresManager::canConnect(selectedPin, endPin)) {
+        if (wiresManager.connectionExists(selectedPin, endPin))
+          wiresManager.deleteWire(selectedPin, endPin);
+        else
+          wiresManager.createWire(selectedPin, endPin);
+      }
 
       selectedPin = nullptr;
 
@@ -412,7 +573,7 @@ class Simulation {
                           mousePos);
 
     for (size_t i = 0; i < previewWireVertices.getVertexCount(); i++)
-      previewWireVertices[i].color = sf::Color::Yellow;
+      previewWireVertices[i].color = previewWireColor;
   }
 
   void handleEvents() {
@@ -464,6 +625,12 @@ class Simulation {
           case sf::Keyboard::Scancode::Num8:
             gatesManager.create<XnorGate>(mousePos);
             break;
+
+          case sf::Keyboard::Scancode::F1:
+            grid.style = grid.style == GridType::Lines ? GridType::Dots
+                                                       : GridType::Lines;
+            grid.create(static_cast<sf::Vector2f>(window.getSize()));
+            break;
         }
       }
     }
@@ -471,6 +638,7 @@ class Simulation {
 
   void update() {
     handleGateMove();
+    handleGateRemoval();
     handleWireDragging();
     wiresManager.update();
     gatesManager.update();

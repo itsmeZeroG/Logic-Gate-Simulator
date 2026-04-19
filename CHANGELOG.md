@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.0 19 April 2026
+
+### Added
+
+- **New Grid Style:** Added a new dot style grid for a minimal look.
+- **Wire Removal:** Added a way to remove wires by redrag the connection.
+- **Gate Removal:** Added a way to remove gates by pciking up a gate and pressing the `Delete` key
+
+### Fixed
+
+- **Reverse Connection:** Fixed an a issue related to unexpected behaviour in gates when creating or deleting wires in reverse order.
+- **Better Snapping:** Fixed the snapping of the gates when creating them.
+
 ## v1.0.0 - 13 April 2026
 
 ### Added
