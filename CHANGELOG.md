@@ -11,6 +11,7 @@
 ### Fixed
 
 - **Reverse Connection:** Fixed an a issue related to unexpected behaviour in gates when creating or deleting wires in reverse order.
+- **Better Snapping:** Fixed the snapping of the gates when creating them.
 
 ## v1.0.0 - 13 April 2026
 
