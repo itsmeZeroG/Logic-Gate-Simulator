@@ -502,7 +502,6 @@ class Simulation {
       if (selectedPin == nullptr) return;
 
       // Just released a pin
-      // endPin = gatesManager.getPinAt(mousePos);
       if (endPin != nullptr && WiresManager::canConnect(selectedPin, endPin)) {
         if (wiresManager.connectionExists(selectedPin, endPin))
           wiresManager.deleteWire(selectedPin, endPin);
