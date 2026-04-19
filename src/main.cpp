@@ -120,6 +120,8 @@ class Wire {
   Wire(Pin* startingPin, Pin* endingPin)
       : startPin{startingPin}, endPin{endingPin} {}
 
+  ~Wire() { endPin->state = false; }
+
   void update() {
     if (startPin == nullptr || endPin == nullptr) return;
 
@@ -384,6 +386,12 @@ class GatesManager {
     gates.push_back(std::move(gate));
   }
 
+  void remove(Gate* gate) {
+    std::erase_if(gates, [&gate](const std::unique_ptr<Gate>& g) {
+      return g.get() == gate;
+    });
+  }
+
   Gate* getGateAt(sf::Vector2f pos) {
     for (const auto& g : gates)
       if (g->body.getGlobalBounds().contains(pos)) return g.get();
@@ -476,6 +484,27 @@ class Simulation {
     }
 
     selectedGate->body.setPosition(mousePos - dragOffset);
+  }
+
+  void handleGateRemoval() {
+    if (selectedGate == nullptr) return;
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Delete)) {
+      std::erase_if(wiresManager.wires, [this](const std::unique_ptr<Wire>& w) {
+        return std::any_of(selectedGate->inputPins.begin(),
+                           selectedGate->inputPins.end(),
+                           [&w](const Pin& p) {
+                             return w->startPin == &p || w->endPin == &p;
+                           }) ||
+               std::any_of(selectedGate->outputPins.begin(),
+                           selectedGate->outputPins.end(), [&w](const Pin& p) {
+                             return w->startPin == &p || w->endPin == &p;
+                           });
+      });
+
+      gatesManager.remove(selectedGate);
+      selectedGate = nullptr;
+    }
   }
 
   void handleWireDragging() {
@@ -599,6 +628,7 @@ class Simulation {
 
   void update() {
     handleGateMove();
+    handleGateRemoval();
     handleWireDragging();
     wiresManager.update();
     gatesManager.update();

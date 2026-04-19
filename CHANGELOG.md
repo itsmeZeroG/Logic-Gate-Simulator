@@ -6,6 +6,7 @@
 
 - **New Grid Style:** Added a new dot style grid for a minimal look.
 - **Wire Removal:** Added a way to remove wires by redrag the connection.
+- **Gate Removal:** Added a way to remove gates by pciking up a gate and pressing the `Delete` key
 
 ### Fixed
 
