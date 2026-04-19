@@ -483,8 +483,18 @@ class Simulation {
       else {
         wireToDelete = wiresManager.getWire(selectedPin, endPin);
         if (wireToDelete != nullptr) {
-          wireToDelete->showDeleteIndicator = true;
-          previewWireColor = sf::Color::Transparent;
+          auto wireIt =
+              std::find_if(wiresManager.wires.begin(), wiresManager.wires.end(),
+                           [this](const std::unique_ptr<Wire>& w) {
+                             return wireToDelete == w.get();
+                           });
+
+          if (wireIt != wiresManager.wires.end()) {
+            std::rotate(wiresManager.wires.begin(), wireIt, wireIt + 1);
+
+            wireToDelete->showDeleteIndicator = true;
+            previewWireColor = sf::Color::Transparent;
+          }
         }
       }
     }
