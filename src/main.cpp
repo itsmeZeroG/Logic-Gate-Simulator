@@ -4,7 +4,6 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
-#include <print>
 #include <vector>
 
 enum class GridType : uint8_t { Lines, Dots };
